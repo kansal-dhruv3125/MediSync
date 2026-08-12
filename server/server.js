@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// server.js - starts JSON Server with the custom API routes (Phases 1-7).
+// server.js - starts JSON Server with the custom API routes (Phases 1-8).
 //
 // JSON Server is built on top of Express, so we can start it programmatically
 // and add our own routes BEFORE the JSON Server router. Since Phase 7 every
@@ -18,7 +18,16 @@
 //   PATCH /api/schedule/:id/status    -> update a user's entry status
 //   GET  /api/dashboard               -> the user's live statistics
 //   GET/POST/PUT/PATCH/DELETE /medications -> the user's medications only
+//
+// Phase 8 (email reminders): a background check runs on a timer and emails
+// the logged-in user when one of their doses is due. The check never blocks
+// or breaks any request - failures are logged and skipped. Email settings
+// come from EMAIL_* environment variables; when EMAIL_HOST is not set, the
+// reminder is only printed to the console (simulated mode).
 // ---------------------------------------------------------------------------
+
+// Loads EMAIL_* (and any other) variables from a local .env file, if present.
+require('dotenv').config()
 
 const fs = require('fs')
 const path = require('path')
@@ -29,6 +38,7 @@ const { detectConflicts } = require('./src/services/conflictService.js')
 const { resolveConflicts } = require('./src/algorithms/conflictResolver.js')
 const { validateMedication } = require('./src/utils/validate.js')
 const { nextId } = require('./src/utils/dbUtils.js')
+const { checkDueReminders } = require('./src/services/reminderService.js')
 const {
   hashPassword,
   verifyPassword,
@@ -436,8 +446,43 @@ app.use((err, req, res, next) => {
   res.status(status).json({ error: message })
 })
 
+// ---------------------------------------------------------------------------
+// Phase 8: email reminder engine
+// ---------------------------------------------------------------------------
+
+// How often the due-dose check runs. Overridable for demos/tests (e.g. 3000
+// ms); the default of 60 seconds keeps the server quiet in normal use.
+const REMINDER_CHECK_INTERVAL_MS =
+  Number(process.env.REMINDER_CHECK_INTERVAL_MS) || 60000
+
+// One check immediately at startup, then every interval. Email problems can
+// never crash the server: every failure is caught here and in emailService.
+// A re-entrancy guard skips a tick if the previous check is still running
+// (e.g. a slow SMTP server), so two checks can never overlap and double-send
+// a reminder for the same dose.
+let reminderCheckRunning = false
+async function runReminderCheck() {
+  if (reminderCheckRunning) return
+  reminderCheckRunning = true
+  try {
+    const result = await checkDueReminders(router.db)
+    if (result.due > 0) {
+      console.log('[MediSync][reminder] Check done:', JSON.stringify(result))
+    }
+  } catch (error) {
+    console.error('[MediSync][reminder] Check failed: ' + error.message)
+  } finally {
+    reminderCheckRunning = false
+  }
+}
+
+runReminderCheck()
+setInterval(runReminderCheck, REMINDER_CHECK_INTERVAL_MS)
+
 app.listen(PORT, () => {
   console.log('MediSync running on http://localhost:' + PORT)
+  console.log('  Email reminders: ' +
+    (process.env.EMAIL_HOST ? 'ENABLED via ' + process.env.EMAIL_HOST : 'simulated (set EMAIL_HOST to enable)'))
   console.log('  POST /api/auth/signup')
   console.log('  POST /api/auth/login')
   console.log('  POST /api/auth/logout')

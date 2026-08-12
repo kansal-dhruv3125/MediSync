@@ -135,6 +135,9 @@ export default function SchedulePage() {
           <p className="page-subtitle">
             Built automatically from your medications' preferred times.
           </p>
+          {/* Phase 8: small informational note - the backend emails the user
+              when a dose becomes due (settings come from EMAIL_* variables) */}
+          <p className="reminder-note">🔔 Email reminder enabled</p>
         </div>
         <button
           type="button"

@@ -345,6 +345,18 @@ a:focus-visible {
   font-size: 14px;
 }
 
+/* Phase 8: small informational note on the Daily Schedule page */
+.reminder-note {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  display: inline-block;
+  padding: 3px 12px;
+}
+
 /* ------------------------------- Dashboard -------------------------------- */
 
 .stats-grid {

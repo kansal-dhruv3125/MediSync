@@ -11,13 +11,42 @@ npm test                      # unit tests (Node's built-in runner)
 npm run build --prefix client # production frontend build
 ```
 
-The unit tests live in `server/test/conflictResolver.test.js` and use only
-Node's built-in `node:test` module — no test framework is installed.
+The unit tests live in `server/test/` (`conflictResolver.test.js` and
+`reminderService.test.js`) and use only Node's built-in `node:test` module —
+no test framework is installed.
 
 ## 0. Test count history
 
 - Phase 1–6: **16 tests** → all pass
 - Phase 7 added 6 authentication tests → **22 tests, all pass** (`npm test`)
+- Phase 8 added 8 reminder tests → **30 tests, all pass** (`npm test`)
+
+## 1c. Email reminder tests (Phase 8)
+
+The reminder tests replace the real email sender with a fake one (injected
+into `checkDueReminders`), so no SMTP server is needed and no real email is
+ever sent. They live in `server/test/reminderService.test.js`.
+
+| # | Test | Result |
+|---|---|---|
+| 23 | Reminder goes to the OWNER of the dose (user isolation) | ✅ pass |
+| 24 | Reminder contains the right medication, dosage and scheduled time | ✅ pass |
+| 25 | An already-notified dose is NOT reminded twice | ✅ pass |
+| 26 | Taken, skipped and future doses are not reminded | ✅ pass |
+| 27 | A failing email never breaks the other reminders | ✅ pass |
+| 28 | A user can never receive another user's reminder | ✅ pass |
+| 29 | A sent dose is marked and never reminded after a refresh | ✅ pass |
+| 30 | Simulated mode (no SMTP) sends nothing and does not mark the dose | ✅ pass |
+
+Live verification additionally confirmed (single server, log mode):
+
+- Server starts and runs normally with **no** `EMAIL_*` variables set
+- A due dose (past scheduled time, pending) triggers the check → the exact
+  email is printed to the server console labelled **SIMULATED**
+- The same dose is not re-emailed on the next check (in real mode it is
+  marked `notificationSent: true`)
+- Conflict detection / resolution, statuses and the dashboard all keep
+  working while the reminder engine runs
 
 ## 1b. Authentication tests (Phase 7)
 
@@ -147,7 +176,7 @@ the final phase).
 ## 5. Note on honesty
 
 - The unit test count reflects the suite **at the time of writing**
-  (22 tests). If you modify the code, re-run `npm test` and update this
+  (30 tests). If you modify the code, re-run `npm test` and update this
   document.
 - Tests 1–13 correspond to the Phase 4 spec's TEST 1–6 plus edge cases;
   tests 14–16 were added in Phase 5 and Phase 6.

@@ -11,7 +11,8 @@ API layer (client/src/services/api.js)
 Express backend (server/server.js — routes)
    ↓  Authentication (authService.js) identifies the logged-in user
    ↓  router.db / services
-Services (scheduleService.js, conflictService.js, authService.js)
+Services (scheduleService.js, conflictService.js, authService.js,
+          reminderService.js, emailService.js)
    ↓
 Algorithms (algorithms/conflictResolver.js)
    ↓  reads/writes
@@ -57,6 +58,11 @@ db.json (server/db.json) — users, sessions, medications, rules, schedules
   and returns the conflicts (Phase 3).
 - `authService.js` — password hashing (bcryptjs), session-token creation and
   user lookups, signup validation (Phase 7).
+- `reminderService.js` — Phase 8: scans schedule entries for due doses and
+  sends each owner a reminder (duplicate protection via `notificationSent`).
+- `emailService.js` — Phase 8: builds the reminder email and hands it to an
+  SMTP server (nodemailer). Falls back to a clearly-labelled simulated
+  console mode when `EMAIL_*` variables are not set; never throws.
 - Pure logic: no Express, no React — easy to unit-test.
 
 ### Algorithm (`server/src/algorithms/conflictResolver.js`)
@@ -116,6 +122,12 @@ DASHBOARD (GET /api/dashboard) shows live counts
         ↓
 USER MARKS DOSE TAKEN/SKIPPED (PATCH /api/schedule/:id/status)
         ↓  persisted to db.json — survives a refresh
+
+PHASE 8 — EMAIL REMINDERS (runs in the background, no user action needed):
+        ↓  reminder engine in server.js fires every 60 s
+        ↓  reminderService checks: pending + not yet notified + time reached
+        ↓  emailService sends to the dose owner's registered email
+        ↓  entry marked notificationSent: true (never reminded twice)
 ```
 
 ## Why this layering helps the viva

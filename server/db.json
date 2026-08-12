@@ -25,6 +25,12 @@
       "token": "dae3490844a4c6ce5ded5398d2e465625282792ff7d5b7bc",
       "userId": 2,
       "createdAt": "2026-08-12T19:39:22.305Z"
+    },
+    {
+      "id": 2,
+      "token": "e0d195f4bfb60b0dfff78ee9a89fbdfd9420ce5d99f25680",
+      "userId": 2,
+      "createdAt": "2026-08-12T22:16:56.733Z"
     }
   ],
   "medications": [
@@ -83,6 +89,17 @@
       ],
       "id": 5,
       "userId": 3
+    },
+    {
+      "name": "paracetamol",
+      "dose": "500",
+      "unit": "mg",
+      "frequency": "Once a day",
+      "preferredTimes": [
+        "03:59"
+      ],
+      "id": 6,
+      "userId": 2
     }
   ],
   "interactionRules": [
@@ -127,13 +144,25 @@
       "status": "pending"
     },
     {
+      "medicationId": 6,
+      "medicationName": "paracetamol",
+      "dose": "500",
+      "unit": "mg",
+      "scheduledTime": "03:59",
+      "status": "pending",
+      "id": 7,
+      "userId": 2,
+      "notificationSent": true,
+      "notificationSentAt": "2026-08-12T22:29:34.596Z"
+    },
+    {
       "medicationId": 4,
       "medicationName": "Medicine A",
       "dose": "500",
       "unit": "mg",
       "scheduledTime": "08:00",
       "status": "pending",
-      "id": 4,
+      "id": 8,
       "userId": 2
     }
   ]

@@ -29,6 +29,7 @@ feat: implement automatic conflict resolution
 feat: add dashboard and schedule status
 docs: finalize project documentation
 chore: add git guide and gitignore
+feat: add email medication reminders (Phase 8)
 ```
 
 (Adjust the exact wording to match how you actually built the project —

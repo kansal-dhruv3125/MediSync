@@ -79,6 +79,11 @@ unresolved when no valid slot exists in the day.
   hashed passwords (bcryptjs), token-based sessions
 - **User-specific data (Phase 7)** — every user sees only their own
   medications, schedule and dashboard; interaction rules stay global
+- **Email medication reminders (Phase 8)** — a background check emails the
+  user when one of their doses is due (SMTP via nodemailer, configurable
+  through `EMAIL_*` environment variables; simulated in the console when no
+  SMTP server is configured). Duplicate protection: each dose is reminded
+  only once (`notificationSent` flag)
 
 ## 5. Technology Stack
 
@@ -88,6 +93,7 @@ unresolved when no valid slot exists in the day.
 | Backend | **Node.js + Express** | REST API routes on top of JSON Server |
 | Persistence | **JSON Server + `db.json`** | JSON file database with REST CRUD |
 | Authentication | **bcryptjs** (password hashing) + server session tokens | signup / login / logout |
+| Email reminders | **nodemailer** (SMTP) + **dotenv** (`EMAIL_*` env vars) | Phase 8 due-dose reminders |
 | Testing | **Node's built-in test runner (`node:test`)** + `npm run build` + browser verification | unit tests, production build |
 
 No MongoDB, authentication, Redux or other libraries — kept simple on
@@ -351,6 +357,50 @@ browser end-to-end) is in `docs/TESTING.md`.
    (Original 09:00 → New 11:00).
 6. Mark the paracetamol dose **Taken** and refresh — the status persists.
 
+## 14b. Email Medication Reminders (Phase 8)
+
+When a scheduled dose becomes due, the backend sends a reminder email to the
+**owner** of that dose:
+
+```
+User's medication
+   ↓  POST /api/schedule/generate
+Daily schedule
+   ↓  reminder engine (server.js, runs every 60 s)
+Due dose detected (pending + not yet notified + time reached)
+   ↓  reminderService.js → emailService.js
+Email service (nodemailer)
+   ↓
+User's registered email
+   ↓
+"It's time to take your scheduled medication" (MediSync reminder)
+```
+
+Simple design rules:
+
+- **Environment variables:** SMTP credentials come from `EMAIL_HOST`,
+  `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASSWORD` and `EMAIL_FROM` — never
+  hard-coded. Copy `.env.example` to `.env` for local testing; on Render the
+  same variables are set in the dashboard. When `EMAIL_HOST` is empty, the
+  reminder is only **printed to the server console** as SIMULATED — no real
+  email is sent and the app still works.
+- **Duplicate prevention:** after a real send the entry is marked
+  `notificationSent: true` (+ `notificationSentAt`), so the same dose is
+  never emailed again — not even after a page refresh.
+- **Respects user isolation:** each entry carries its owner's `userId`, and
+  the reminder always goes to that user's email only — never another user's.
+- **Never breaks the app:** a failing SMTP server is caught and logged; the
+  schedule, conflict detection, resolution and statuses all keep working.
+- **Reminder only:** the dose is not auto-marked as taken — the user still
+  chooses Mark Taken / Skip in the Daily Schedule UI.
+- **No medical advice:** the email only says "It's time to take your
+  scheduled medication". It never claims a medicine is safe.
+- **Two small honest limitations:** a dose is "due" in **server-local time**
+  (the schedule stores times only, no dates or time zones), and if the SMTP
+  server is persistently unreachable the same dose is retried on every
+  check and logged server-side each time (it is only marked as notified
+  after a real send).
+
 ## 15. Limitations
 
 - **JSON Server + `db.json`** is lightweight project persistence, not a
@@ -375,7 +425,11 @@ Ideas that were intentionally **not** implemented (future work only):
 - Real medical interaction database
 - Authentication / caregiver accounts
 - MongoDB instead of JSON Server
-- Notifications / reminders
+- Real medical interaction database
+- Authentication / caregiver accounts
+- MongoDB instead of JSON Server
+- Notifications / reminders (now partially covered by Phase 8 email
+  reminders)
 - Mobile application
 
 ## 17. Deployment Notes
@@ -404,3 +458,6 @@ documentation & polish ✓
 
 **Phase 7:** authentication ✓ — signup, login, logout, session restore and
 user-specific medications / schedules / dashboard statistics.
+
+**Phase 8:** email medication reminders ✓ — due-dose check, SMTP emailing
+via `EMAIL_*` env vars, simulated console mode, duplicate protection.
