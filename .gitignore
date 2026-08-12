@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Frontend build output
+client/dist/
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files (no secrets committed)
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp

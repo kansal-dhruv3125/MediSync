@@ -1,0 +1,22 @@
+{
+  "name": "medication-scheduler",
+  "version": "1.0.0",
+  "description": "Medication Dosage & Interaction Scheduler - college project (Phases 1-7: CRUD, schedule, conflicts, resolution, dashboard, statuses, authentication)",
+  "private": true,
+  "scripts": {
+    "server": "node server/server.js",
+    "client": "npm run dev --prefix client",
+    "start": "node server/server.js",
+    "build": "npm install --prefix client && npm run build --prefix client",
+    "install:all": "npm install && npm install --prefix client",
+    "test": "node --test \"server/test/*.test.js\""
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "express": "^4.19.2",
+    "json-server": "^0.17.4"
+  },
+  "devDependencies": {
+    "lowdb": "^1.0.0"
+  }
+}
