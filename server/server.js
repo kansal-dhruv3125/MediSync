@@ -481,8 +481,12 @@ setInterval(runReminderCheck, REMINDER_CHECK_INTERVAL_MS)
 
 app.listen(PORT, () => {
   console.log('MediSync running on http://localhost:' + PORT)
-  console.log('  Email reminders: ' +
-    (process.env.EMAIL_HOST ? 'ENABLED via ' + process.env.EMAIL_HOST : 'simulated (set EMAIL_HOST to enable)'))
+  console.log(
+  '  Email reminders: ' +
+    (process.env.BREVO_API_KEY
+      ? 'ENABLED via Brevo API'
+      : 'simulated (set BREVO_API_KEY to enable)')
+)
   console.log('  POST /api/auth/signup')
   console.log('  POST /api/auth/login')
   console.log('  POST /api/auth/logout')

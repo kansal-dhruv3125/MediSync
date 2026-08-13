@@ -1,41 +1,28 @@
 // ---------------------------------------------------------------------------
-// emailService.js - Phase 8: email medication reminders.
+// emailService.js - Phase 8: Brevo API medication reminders
 //
-// This file has NO React and NO Express code. It only knows how to turn a
-// due dose into an email and hand that email to an SMTP server.
+// Sends MediSync medication reminders using Brevo's HTTPS API.
+// No SMTP connection is required, which makes this suitable for Render.
 //
-// Credentials are NEVER hard-coded - they come from environment variables
-// (see .env.example at the project root):
+// Required environment variables:
+//   BREVO_API_KEY
+//   EMAIL_FROM
+//   EMAIL_FROM_NAME (optional)
 //
-//   EMAIL_HOST       SMTP server host (e.g. smtp.gmail.com)
-//   EMAIL_PORT       SMTP port (587 default)
-//   EMAIL_USER       SMTP username
-//   EMAIL_PASSWORD   SMTP password / app password
-//   EMAIL_FROM       "From" address shown in the email
-//
-// Local development / no credentials:
-//   When EMAIL_HOST is not set, the email is NOT sent. Instead it is printed
-//   to the server console clearly labelled as SIMULATED, so a developer can
-//   verify the reminder logic without an SMTP account. This mode NEVER
-//   claims that a real email was sent (sent: false, simulated: true).
-//
-// Every reminder is produced in two versions:
-//   - HTML        a responsive, inline-CSS template
-//   - plain text  a fallback for email clients that do not support HTML
+// IMPORTANT:
+//   - Never hard-code the Brevo API key.
+//   - EMAIL_FROM must be a verified sender in Brevo.
 // ---------------------------------------------------------------------------
 
-const nodemailer = require('nodemailer')
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email'
 
-// ---------------------------------------------------------------------------
-// Email server settings
-// ---------------------------------------------------------------------------
+const BREVO_API_KEY = process.env.BREVO_API_KEY || ''
 
-const EMAIL_HOST = process.env.EMAIL_HOST || ''
-const EMAIL_PORT = Number(process.env.EMAIL_PORT) || 587
-const EMAIL_USER = process.env.EMAIL_USER || ''
-const EMAIL_PASSWORD = process.env.EMAIL_PASSWORD || ''
 const EMAIL_FROM =
-  process.env.EMAIL_FROM || 'MediSync <reminders@medisync.app>'
+  process.env.EMAIL_FROM || 'medisync.reminder@gmail.com'
+
+const EMAIL_FROM_NAME =
+  process.env.EMAIL_FROM_NAME || 'MediSync'
 
 // ---------------------------------------------------------------------------
 // Branding colors
@@ -53,11 +40,11 @@ const TEXT_MUTED = '#64748b'
 const TEXT_FAINT = '#94a3b8'
 
 // ---------------------------------------------------------------------------
-// Configuration check
+// Configuration
 // ---------------------------------------------------------------------------
 
 function isEmailConfigured() {
-  return Boolean(EMAIL_HOST)
+  return Boolean(BREVO_API_KEY && EMAIL_FROM)
 }
 
 // ---------------------------------------------------------------------------
@@ -176,6 +163,7 @@ function buildReminderHtml(user, medication, scheduleEntry) {
     '<meta name="viewport" content="width=device-width, initial-scale=1.0" />\n' +
     '<title>MediSync Medication Reminder</title>\n' +
     '</head>\n' +
+
     '<body style="margin:0; padding:0; background-color:' +
     PAGE_BG +
     ';">\n' +
@@ -332,7 +320,7 @@ function buildReminderHtml(user, medication, scheduleEntry) {
 }
 
 // ---------------------------------------------------------------------------
-// Simulated email for local development
+// Simulated email
 // ---------------------------------------------------------------------------
 
 function logSimulatedEmail(user, subject, text) {
@@ -353,6 +341,75 @@ function logSimulatedEmail(user, subject, text) {
     '[MediSync][reminder] Body (plain text; an HTML version is also generated):\n' +
       text
   )
+}
+
+// ---------------------------------------------------------------------------
+// Send email through Brevo HTTPS API
+// ---------------------------------------------------------------------------
+
+async function sendViaBrevoApi({
+  user,
+  subject,
+  text,
+  html
+}) {
+  const response = await fetch(BREVO_API_URL, {
+    method: 'POST',
+
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'api-key': BREVO_API_KEY
+    },
+
+    body: JSON.stringify({
+      sender: {
+        name: EMAIL_FROM_NAME,
+        email: EMAIL_FROM
+      },
+
+      to: [
+        {
+          email: user.email,
+          name: user.name
+        }
+      ],
+
+      subject,
+
+      htmlContent: html,
+
+      textContent: text,
+
+      tags: ['medisync', 'medication-reminder']
+    })
+  })
+
+  const responseText = await response.text()
+
+  let responseData = null
+
+  try {
+    responseData = responseText
+      ? JSON.parse(responseText)
+      : null
+  } catch {
+    responseData = null
+  }
+
+  if (!response.ok) {
+    const detail =
+      responseData?.message ||
+      responseData?.code ||
+      responseText ||
+      `HTTP ${response.status}`
+
+    throw new Error(
+      `Brevo API ${response.status}: ${detail}`
+    )
+  }
+
+  return responseData
 }
 
 // ---------------------------------------------------------------------------
@@ -381,7 +438,7 @@ async function sendMedicationReminder(
     scheduleEntry
   )
 
-  // No SMTP configuration
+  // No Brevo API configuration
   if (!isEmailConfigured()) {
     logSimulatedEmail(
       user,
@@ -395,42 +452,9 @@ async function sendMedicationReminder(
     }
   }
 
-  // -------------------------------------------------------------------------
-  // SMTP TRANSPORTER
-  //
-  // IMPORTANT:
-  // family: 4 forces IPv4.
-  //
-  // Render was trying to connect to Gmail through IPv6 and returning:
-  //
-  // connect ENETUNREACH ... :587
-  //
-  // Using family: 4 makes Node use IPv4 for smtp.gmail.com.
-  // -------------------------------------------------------------------------
-
-  const transporter = nodemailer.createTransport({
-    host: EMAIL_HOST,
-    port: EMAIL_PORT,
-
-    // Gmail port 465 = implicit TLS
-    // Gmail port 587 = STARTTLS
-    secure: EMAIL_PORT === 465,
-
-    // FIX: Force IPv4 instead of IPv6
-    family: 4,
-
-    auth: EMAIL_USER
-      ? {
-          user: EMAIL_USER,
-          pass: EMAIL_PASSWORD
-        }
-      : undefined
-  })
-
   try {
-    await transporter.sendMail({
-      from: EMAIL_FROM,
-      to: user.email,
+    const result = await sendViaBrevoApi({
+      user,
       subject,
       text,
       html
@@ -438,11 +462,16 @@ async function sendMedicationReminder(
 
     console.log(
       '[MediSync][reminder] Email sent successfully to ' +
-        user.email
+        user.email +
+        ' via Brevo API' +
+        (result?.messageId
+          ? ' | messageId: ' + result.messageId
+          : '')
     )
 
     return {
-      sent: true
+      sent: true,
+      messageId: result?.messageId
     }
   } catch (error) {
     console.error(
